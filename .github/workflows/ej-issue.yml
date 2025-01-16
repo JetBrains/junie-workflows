@@ -1,0 +1,192 @@
+name: junie
+
+on:
+  workflow_call: {}
+
+jobs:
+  junie-setup:
+    runs-on: ubuntu-latest    
+    permissions:
+      pull-requests: read
+    outputs:
+      run_type: ${{ steps.check.outputs.run_type }}
+      checkout_ref: ${{ steps.check.outputs.checkout_ref }}
+      issue_body: ${{ steps.check.outputs.issue_body }}
+      issue_title: ${{ steps.check.outputs.issue_title }}
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - id: check
+        name: determine run type
+        uses: actions/github-script@v7
+        with:
+          script: |
+            let outputs = { run_type: 'none' };
+            
+            if (context.eventName === 'issues' && context.payload.issue.title.includes('junie')) {
+              outputs = {
+                run_type: 'new_issue',
+                issue_title: context.payload.issue.title,
+                issue_body: context.payload.issue.body
+              };
+            }
+            
+            if (context.eventName === 'issue_comment' && context.payload.issue.pull_request && context.payload.comment.body === 'junie: fix all') {                            
+              const prRequestPrams = {
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                pull_number: context.payload.issue.number,
+              };
+              const [{ data: pr }, { data: comments }] = await Promise.all([
+                  github.rest.pulls.get(prRequestPrams),
+                  github.rest.pulls.listReviewComments(prRequestPrams)
+              ]);
+              
+              const formattedComments = [
+                'You will receive following GitHub comments to pull requests of current branch.',
+                `PR description:\n${pr.body}\n`,
+                'Comments:',
+                ...comments.map(comment => 
+                  `[file: ${comment.path}, line: ${comment.line}]\n${comment.body}\n---NEXT_COMMENT---`
+                )
+              ].join('\n');
+              
+              outputs = {
+                issue_title: 'fix all pull request issues',
+                run_type: 'fix_all',
+                issue_body: formattedComments,
+                checkout_ref: pr.head.ref,
+              };
+            }
+            
+            if (context.eventName === 'pull_request_review_comment' && context.payload.comment.body.startsWith('junie: fix')) {
+              outputs = {
+                checkout_ref: context.payload.pull_request.head.ref,
+                issue_title: 'fix pull request issue',
+                issue_body: context.payload.comment.body,
+                run_type: 'fix_single'
+              };
+            }
+            
+            // Set all outputs
+            Object.entries(outputs).forEach(([key, value]) => {
+              core.setOutput(key, value);
+            });
+            
+            console.log('Final outputs:', outputs);
+
+  run-junie:
+    needs: junie-setup
+    if: needs.junie-setup.outputs.run_type != 'none'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+      packages: read
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.junie-setup.outputs.checkout_ref }}
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Run junie plugin
+        run: |
+          INGRAZZIO_URL="https://ingrazzio-dev.labs.jb.gg"
+          INGRAZZIO_ACCESS_TOKEN=$(curl -X POST "${INGRAZZIO_URL}/auth" \
+            -H "Content-Type: application/json" \
+            -s -S \
+            -d "{\"token\": \"${{ secrets.GITHUB_TOKEN }}\"}" | jq -r '.id')
+
+          if [ -z "$INGRAZZIO_ACCESS_TOKEN" ] || [[ "$INGRAZZIO_ACCESS_TOKEN" != GH* ]]; then
+            echo "INGRAZZIO_ACCESS_TOKEN is invalid: $INGRAZZIO_ACCESS_TOKEN, exiting with status 1."
+            exit 1
+          fi
+          
+          # to escape newlines and quotas
+          ISSUE_BODY=ISSUE_BODY=$(cat <<'EOF'
+            ${{ needs.junie-setup.outputs.issue_body }}
+          EOF
+          )
+
+          docker run \
+            -e ISSUE_TITLE="${{ needs.junie-setup.outputs.issue_title }}" \
+            -e ISSUE_BODY="$ISSUE_BODY" \
+            -e INGRAZZIO_URL="$INGRAZZIO_URL" \
+            -e INGRAZZIO_ACCESS_TOKEN="$INGRAZZIO_ACCESS_TOKEN" \
+            -e KEEP_SERVICE_DIR="true" \
+            -v ${{ github.workspace }}:/project \
+            -v ${{ github.workspace }}/ej-logs:/idea/idea-logs \
+            --user root \
+            ghcr.io/jetbrains/junie_workflows/amd64-idea-ej:latest
+
+      - name: Allowing following step to patch logs and .idea
+        if: always()
+        run: |
+          sudo chown -R runner:runner .idea
+          sudo chown -R runner:runner ej-logs
+          sudo chown -R runner:runner .matterhorn
+
+      - name: Save junie result summary
+        id: junie_summary
+        continue-on-error: true
+        run: |
+          echo "summary<<EOF" >> $GITHUB_OUTPUT
+          echo "$(cat .matterhorn/.matterhorn/representations/matterhorn_issue_md/reportgenerator.ReportGenerator)" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+          echo "short=$(cat .matterhorn/.matterhorn/representations/matterhorn_issue_md/summarizetaskdescription.SummarizeTaskDescription)" >> $GITHUB_OUTPUT
+          echo "output is $GITHUB_OUTPUT"
+
+      - name: Archive Logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ej-logs
+          path: ej-logs/
+          include-hidden-files: 'true'
+          retention-days: 3
+
+      - name: Restore or remove .idea directory
+        run: |
+          rm -rf ej-logs
+          rm -rf .matterhorn
+
+          if git ls-tree -d HEAD .idea | grep "\.idea" >/dev/null 2>&1; then
+            echo "Restoring tracked '.idea' directory"
+            git checkout -- .idea
+            git clean -f -d .idea            
+          else
+            echo "Removing untracked '.idea' directory"
+            rm -rf .idea
+          fi
+
+      - name: Create Pull Request
+        if: needs.junie-setup.outputs.run_type == 'new_issue'
+        uses: peter-evans/create-pull-request@v5
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          commit-message: "[junie] ${{ github.event.issue.title }} changes from the task: \"${{ github.event.issue.number }}\""
+          title: "Changes from issue ${{ github.event.issue.title }}"
+          body: |
+            This PR was automatically created in response to issue #${{ github.event.issue.number }}            
+            Original issue description:
+            ${{ github.event.issue.body }}
+            junie summary:
+            ${{ steps.junie_summary.outputs.summary }}
+          branch: feature/issue-${{ github.event.issue.number }}
+          base: main
+
+      - name: Commit changes to PR branch
+        if: needs.junie-setup.outputs.run_type == 'fix_all' || needs.junie-setup.outputs.run_type == 'fix_single'
+        run: |
+          git config --global user.name 'junie[bot]'
+          git config --global user.email 'junie[bot]@users.noreply.github.com'
+          git add .
+          git commit -m "[junnie] ${{ steps.junie_summary.outputs.short }}" -m "summary: ${{ steps.junie_summary.outputs.content }}"
+          git push origin HEAD:${{ needs.junie-setup.outputs.checkout_ref }}
