@@ -1,3 +1,8 @@
+name: junie
+
+on:
+  workflow_call: {}
+
 jobs:
   junie-setup:
     runs-on: ubuntu-latest
