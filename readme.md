@@ -33,7 +33,7 @@ on:
 
 jobs:
   call-workflow-passing-data:
-    uses: JetBrains/junie_workflows/.github/workflows/ej-issue.yml@main
+    uses: JetBrains/junie-workflows/.github/workflows/ej-issue.yml@main
 ```
 
 ### 🎮 Three Ways to Use Junie:
