@@ -119,7 +119,7 @@ jobs:
             echo "INGRAZZIO_ACCESS_TOKEN is invalid: $INGRAZZIO_ACCESS_TOKEN, exiting with status 1."
             exit 1
           fi
-          
+          # to escape newlines and quotas
           ISSUE_BODY=ISSUE_BODY=$(cat <<'EOF'
             ${{ needs.junie-setup.outputs.issue_body }}
           EOF
