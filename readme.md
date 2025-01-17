@@ -32,7 +32,7 @@ on:
     types: [created]
 
 jobs:
-  call-workflow-passing-data:
+  junie:
     uses: JetBrains/junie-workflows/.github/workflows/ej-issue.yml@main
 ```
 
