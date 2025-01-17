@@ -42,7 +42,7 @@ jobs:
                   github.rest.pulls.get(prRequestPrams),
                   github.rest.pulls.listReviewComments(prRequestPrams)
               ]);
-              
+            
               const formattedComments = [
                 'You will receive following GitHub comments to pull requests of current branch.',
                 `PR description:\n${pr.body}\n`,
@@ -51,7 +51,7 @@ jobs:
                   `[file: ${comment.path}, line: ${comment.line}]\n${comment.body}\n---NEXT_COMMENT---`
                 )
               ].join('\n');
-              
+            
               outputs = {
                 issue_title: 'fix all pull request issues',
                 run_type: 'fix_all',
@@ -69,7 +69,6 @@ jobs:
               };
             }
             
-            // Set all outputs
             Object.entries(outputs).forEach(([key, value]) => {
               core.setOutput(key, value);
             });
@@ -121,7 +120,6 @@ jobs:
             exit 1
           fi
           
-          # to escape newlines and quotas
           ISSUE_BODY=ISSUE_BODY=$(cat <<'EOF'
             ${{ needs.junie-setup.outputs.issue_body }}
           EOF
@@ -193,3 +191,12 @@ jobs:
             ${{ steps.junie_summary.outputs.summary }}
           branch: feature/issue-${{ github.event.issue.number }}
           base: ${{ needs.junie-setup.outputs.default_branch }}
+
+      - name: Commit changes to PR branch
+        if: needs.junie-setup.outputs.run_type == 'fix_all' || needs.junie-setup.outputs.run_type == 'fix_single'
+        run: |
+          git config --global user.name 'junie[bot]'
+          git config --global user.email 'junie[bot]@users.noreply.github.com'
+          git add .
+          git commit -m "[junnie] ${{ steps.junie_summary.outputs.short }}" -m "summary: ${{ steps.junie_summary.outputs.content }}"
+          git push origin HEAD:${{ needs.junie-setup.outputs.checkout_ref }}
