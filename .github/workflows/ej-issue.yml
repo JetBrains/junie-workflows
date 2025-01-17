@@ -1,11 +1,6 @@
-name: junie
-
-on:
-  workflow_call: {}
-
 jobs:
   junie-setup:
-    runs-on: ubuntu-latest    
+    runs-on: ubuntu-latest
     permissions:
       pull-requests: read
     outputs:
@@ -13,6 +8,7 @@ jobs:
       checkout_ref: ${{ steps.check.outputs.checkout_ref }}
       issue_body: ${{ steps.check.outputs.issue_body }}
       issue_title: ${{ steps.check.outputs.issue_title }}
+      default_branch: ${{ steps.get-default-branch.outputs.default_branch }}
     env:
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     steps:
@@ -74,6 +70,17 @@ jobs:
             });
             
             console.log('Final outputs:', outputs);
+
+      - id: get-default-branch
+        name: Get default branch
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { data: repo } = await github.rest.repos.get({
+              owner: context.repo.owner,
+              repo: context.repo.repo
+            });
+            core.setOutput("default_branch", repo.default_branch);
 
   run-junie:
     needs: junie-setup
@@ -180,13 +187,4 @@ jobs:
             junie summary:
             ${{ steps.junie_summary.outputs.summary }}
           branch: feature/issue-${{ github.event.issue.number }}
-          base: ${{ github.event.repository.default_branch }}
-
-      - name: Commit changes to PR branch
-        if: needs.junie-setup.outputs.run_type == 'fix_all' || needs.junie-setup.outputs.run_type == 'fix_single'
-        run: |
-          git config --global user.name 'junie[bot]'
-          git config --global user.email 'junie[bot]@users.noreply.github.com'
-          git add .
-          git commit -m "[junnie] ${{ steps.junie_summary.outputs.short }}" -m "summary: ${{ steps.junie_summary.outputs.content }}"
-          git push origin HEAD:${{ needs.junie-setup.outputs.checkout_ref }}
+          base: ${{ needs.junie-setup.outputs.default_branch }}
