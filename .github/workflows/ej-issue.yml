@@ -5,7 +5,7 @@ on:
 
 jobs:
   junie-setup:
-    runs-on: ubuntu-latest    
+    runs-on: ubuntu-latest
     permissions:
       pull-requests: read
     outputs:
@@ -13,6 +13,7 @@ jobs:
       checkout_ref: ${{ steps.check.outputs.checkout_ref }}
       issue_body: ${{ steps.check.outputs.issue_body }}
       issue_title: ${{ steps.check.outputs.issue_title }}
+      default_branch: ${{ steps.get-default-branch.outputs.default_branch }}
     env:
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     steps:
@@ -41,7 +42,7 @@ jobs:
                   github.rest.pulls.get(prRequestPrams),
                   github.rest.pulls.listReviewComments(prRequestPrams)
               ]);
-              
+            
               const formattedComments = [
                 'You will receive following GitHub comments to pull requests of current branch.',
                 `PR description:\n${pr.body}\n`,
@@ -50,7 +51,7 @@ jobs:
                   `[file: ${comment.path}, line: ${comment.line}]\n${comment.body}\n---NEXT_COMMENT---`
                 )
               ].join('\n');
-              
+            
               outputs = {
                 issue_title: 'fix all pull request issues',
                 run_type: 'fix_all',
@@ -68,12 +69,22 @@ jobs:
               };
             }
             
-            // Set all outputs
             Object.entries(outputs).forEach(([key, value]) => {
               core.setOutput(key, value);
             });
             
             console.log('Final outputs:', outputs);
+
+      - id: get-default-branch
+        name: Get default branch
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { data: repo } = await github.rest.repos.get({
+              owner: context.repo.owner,
+              repo: context.repo.repo
+            });
+            core.setOutput("default_branch", repo.default_branch);
 
   run-junie:
     needs: junie-setup
@@ -108,7 +119,6 @@ jobs:
             echo "INGRAZZIO_ACCESS_TOKEN is invalid: $INGRAZZIO_ACCESS_TOKEN, exiting with status 1."
             exit 1
           fi
-          
           # to escape newlines and quotas
           ISSUE_BODY=ISSUE_BODY=$(cat <<'EOF'
             ${{ needs.junie-setup.outputs.issue_body }}
@@ -180,7 +190,7 @@ jobs:
             junie summary:
             ${{ steps.junie_summary.outputs.summary }}
           branch: feature/issue-${{ github.event.issue.number }}
-          base: ${{ github.event.repository.default_branch }}
+          base: ${{ needs.junie-setup.outputs.default_branch }}
 
       - name: Commit changes to PR branch
         if: needs.junie-setup.outputs.run_type == 'fix_all' || needs.junie-setup.outputs.run_type == 'fix_single'
