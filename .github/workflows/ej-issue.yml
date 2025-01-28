@@ -156,6 +156,15 @@ jobs:
           include-hidden-files: 'true'
           retention-days: 3
 
+      - name: Archive .matterhorn
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: matterhorn-logs
+          path: .matterhorn
+          include-hidden-files: 'true'
+          retention-days: 3
+
       - name: Restore or remove .idea directory
         run: |
           rm -rf ej-logs
