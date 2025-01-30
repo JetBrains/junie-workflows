@@ -136,6 +136,7 @@ jobs:
           sudo chown -R runner:runner .idea
           sudo chown -R runner:runner ej-logs
           sudo chown -R runner:runner .matterhorn
+          sudo chown -R runner:runner .output.txt 2>/dev/null
 
       - name: Save junie result summary
         id: junie_summary
@@ -169,6 +170,7 @@ jobs:
         run: |
           rm -rf ej-logs
           rm -rf .matterhorn
+          rm -rf .output.txt
 
           if git ls-tree -d HEAD .idea | grep "\.idea" >/dev/null 2>&1; then
             echo "Restoring tracked '.idea' directory"
