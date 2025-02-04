@@ -103,7 +103,7 @@ jobs:
 
       - name: Run junie plugin
         run: |
-          INGRAZZIO_URL="https://ingrazzio-dev.labs.jb.gg"
+          INGRAZZIO_URL="https://ingrazzio.labs.jb.gg"
           INGRAZZIO_ACCESS_TOKEN=$(curl -X POST "${INGRAZZIO_URL}/auth" \
             -H "Content-Type: application/json" \
             -s -S \
