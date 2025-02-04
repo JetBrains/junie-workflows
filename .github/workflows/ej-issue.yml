@@ -133,10 +133,10 @@ jobs:
       - name: Allowing following step to patch logs and .idea
         if: always()
         run: |
-          sudo chown -R runner:runner .idea
+          sudo chown -R runner:runner .idea || true
           sudo chown -R runner:runner ej-logs
           sudo chown -R runner:runner .matterhorn
-          sudo chown -R runner:runner .output.txt 2>/dev/null
+          sudo chown runner:runner .output.txt || true
 
       - name: Save junie result summary
         id: junie_summary
