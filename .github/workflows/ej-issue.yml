@@ -14,6 +14,7 @@ jobs:
       issue_body: ${{ steps.check.outputs.issue_body }}
       issue_title: ${{ steps.check.outputs.issue_title }}
       default_branch: ${{ steps.check.outputs.default_branch }}
+      upload_logs: ${{ steps.check.outputs.upload_logs }}
     env:
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     steps:
@@ -21,10 +22,18 @@ jobs:
         name: determine run type
         uses: actions/github-script@v7
         with:
-          script: |
+          script: |            
+            const { data: repo } = await github.rest.repos.get({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+            });
+            
             let outputs = { run_type: 'none' };
             
-            if (context.eventName === 'issues' && context.payload.issue.title.includes('junie')) {
+            if (
+              (context.eventName === 'issues' && context.payload.issue.title.includes('junie')) ||
+              (context.eventName === 'issue_comment' && context.payload.comment.body == 'junie: try again')
+            ) {
               outputs = {
                 run_type: 'new_issue',
                 issue_title: context.payload.issue.title,
@@ -38,13 +47,9 @@ jobs:
                 repo: context.repo.repo,
                 pull_number: context.payload.issue.number,
               };
-              const [{ data: pr }, { data: comments }, { data: repo }] = await Promise.all([
+              const [{ data: pr }, { data: comments }] = await Promise.all([
                   github.rest.pulls.get(prRequestPrams),
                   github.rest.pulls.listReviewComments(prRequestPrams),
-                  github.rest.repos.get({
-                      owner: context.repo.owner,
-                      repo: context.repo.repo
-                  })
               ]);
             
               const formattedComments = [
@@ -73,6 +78,8 @@ jobs:
                 run_type: 'fix_single'
               };
             }
+
+            outputs.upload_logs = (repo.visibility == "private" || repo.visibility == "internal") ? 'true' : 'false'
             
             Object.entries(outputs).forEach(([key, value]) => {
               core.setOutput(key, value);
@@ -150,7 +157,7 @@ jobs:
           echo "output is $GITHUB_OUTPUT"
 
       - name: Archive Logs
-        if: always()
+        if: always() && (needs.junie-setup.outputs.upload_logs == 'true')
         uses: actions/upload-artifact@v4
         with:
           name: ej-logs
@@ -159,7 +166,7 @@ jobs:
           retention-days: 3
 
       - name: Archive .matterhorn
-        if: always()
+        if: always() && (needs.junie-setup.outputs.upload_logs == 'true')
         uses: actions/upload-artifact@v4
         with:
           name: matterhorn-logs
