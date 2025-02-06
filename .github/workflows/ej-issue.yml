@@ -4,7 +4,7 @@ on:
   workflow_call:
     secrets:
       GCP_DOCKER_JUNIE_KEY:
-        required: true
+        required: false
 
 jobs:
   junie-setup:
