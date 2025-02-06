@@ -112,14 +112,14 @@ jobs:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Log in to GCP Artifact Registry
-        if: ${{ secrets.GCP_DOCKER_JUNIE_KEY != '' }}
-        uses: docker/login-action@v3
-        with:
-          registry: europe-west1-docker.pkg.dev
-          username: _json_key
-          password: ${{ secrets.GCP_DOCKER_JUNIE_KEY }}
+#
+#      - name: Log in to GCP Artifact Registry
+#        if: ${{ secrets.GCP_DOCKER_JUNIE_KEY != '' }}
+#        uses: docker/login-action@v3
+#        with:
+#          registry: europe-west1-docker.pkg.dev
+#          username: _json_key
+#          password: ${{ secrets.GCP_DOCKER_JUNIE_KEY }}
 
       - name: Run junie plugin
         env:
