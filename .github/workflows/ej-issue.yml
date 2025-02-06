@@ -1,7 +1,10 @@
 name: junie
 
 on:
-  workflow_call: {}
+  workflow_call:
+    secrets:
+      GCP_DOCKER_JUNIE_KEY:
+        required: false
 
 jobs:
   junie-setup:
@@ -14,6 +17,8 @@ jobs:
       issue_body: ${{ steps.check.outputs.issue_body }}
       issue_title: ${{ steps.check.outputs.issue_title }}
       default_branch: ${{ steps.check.outputs.default_branch }}
+      upload_logs: ${{ steps.check.outputs.upload_logs }}
+      use_github_registry: ${{ steps.check.outputs.use_github_registry }}
     env:
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     steps:
@@ -21,10 +26,18 @@ jobs:
         name: determine run type
         uses: actions/github-script@v7
         with:
-          script: |
+          script: |            
+            const { data: repo } = await github.rest.repos.get({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+            });
+            
             let outputs = { run_type: 'none' };
             
-            if (context.eventName === 'issues' && context.payload.issue.title.includes('junie')) {
+            if (
+              (context.eventName === 'issues' && context.payload.issue.title.includes('junie')) ||
+              (context.eventName === 'issue_comment' && context.payload.comment.body == 'junie: try again')
+            ) {
               outputs = {
                 run_type: 'new_issue',
                 issue_title: context.payload.issue.title,
@@ -38,13 +51,9 @@ jobs:
                 repo: context.repo.repo,
                 pull_number: context.payload.issue.number,
               };
-              const [{ data: pr }, { data: comments }, { data: repo }] = await Promise.all([
+              const [{ data: pr }, { data: comments }] = await Promise.all([
                   github.rest.pulls.get(prRequestPrams),
                   github.rest.pulls.listReviewComments(prRequestPrams),
-                  github.rest.repos.get({
-                      owner: context.repo.owner,
-                      repo: context.repo.repo
-                  })
               ]);
             
               const formattedComments = [
@@ -73,6 +82,10 @@ jobs:
                 run_type: 'fix_single'
               };
             }
+
+            const isJetbrains = repo.owner.login.toLowerCase() === 'jetbrains';
+            outputs.upload_logs = ((repo.visibility == "private" || repo.visibility == "internal") && isJetbrains) ? 'true' : 'false'
+            outputs.use_github_registry = isJetbrains ? 'true' : 'false'
             
             Object.entries(outputs).forEach(([key, value]) => {
               core.setOutput(key, value);
@@ -95,13 +108,24 @@ jobs:
           ref: ${{ needs.junie-setup.outputs.checkout_ref }}
 
       - name: Log in to GitHub Container Registry
+        if: ${{ needs.junie-setup.outputs.use_github_registry == 'true' }}
         uses: docker/login-action@v3
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Log in to GCP Artifact Registry
+        if: ${{ needs.junie-setup.outputs.use_github_registry == 'false' }}
+        uses: docker/login-action@v3
+        with:
+          registry: europe-west1-docker.pkg.dev
+          username: _json_key
+          password: ${{ secrets.GCP_DOCKER_JUNIE_KEY }}
+
       - name: Run junie plugin
+        env:
+          GCP_DOCKER_JUNIE_KEY: ${{ secrets.GCP_DOCKER_JUNIE_KEY }}
         run: |
           INGRAZZIO_URL="https://ingrazzio-dev.labs.jb.gg"
           INGRAZZIO_ACCESS_TOKEN=$(curl -X POST "${INGRAZZIO_URL}/auth" \
@@ -118,6 +142,12 @@ jobs:
             ${{ needs.junie-setup.outputs.issue_body }}
           EOF
           )
+          
+          if [ -n "$GCP_DOCKER_JUNIE_KEY" ]; then
+            IMAGE="europe-west1-docker.pkg.dev/jetbrains-matterhorn-prod/junie-cloud/amd64-idea-ej:latest"
+          else
+            IMAGE="ghcr.io/jetbrains/junie_workflows/amd64-idea-ej:latest"
+          fi
 
           docker run \
             -e ISSUE_TITLE="${{ needs.junie-setup.outputs.issue_title }}" \
@@ -128,7 +158,7 @@ jobs:
             -v ${{ github.workspace }}:/project \
             -v ${{ github.workspace }}/ej-logs:/idea/idea-logs \
             --user root \
-            ghcr.io/jetbrains/junie_workflows/amd64-idea-ej:latest
+            $IMAGE
 
       - name: Allowing following step to patch logs and .idea
         if: always()
@@ -150,7 +180,7 @@ jobs:
           echo "output is $GITHUB_OUTPUT"
 
       - name: Archive Logs
-        if: always()
+        if: always() && (needs.junie-setup.outputs.upload_logs == 'true')
         uses: actions/upload-artifact@v4
         with:
           name: ej-logs
@@ -159,7 +189,7 @@ jobs:
           retention-days: 3
 
       - name: Archive .matterhorn
-        if: always()
+        if: always() && (needs.junie-setup.outputs.upload_logs == 'true')
         uses: actions/upload-artifact@v4
         with:
           name: matterhorn-logs

@@ -1,4 +1,4 @@
-# 🤖 Junie - Your AI Coding Assistant
+# 🤖 Junie — Your AI Coding Assistant
 
 Hey there! 👋 Meet Junie, your friendly AI coding assistant that works right inside your GitHub repository!
 
@@ -19,7 +19,11 @@ Want to try Junie in your IDE? Check out our [IntelliJ Plugin](https://plugins.j
 
 ## 🚀 How to Use
 
-Getting started is super easy! Just add this workflow to your private or internal GitHub repository under JetBrains organization:
+Getting started is super easy! Junie works out the box in a private or internal GitHub repository under the JetBrains organization. For any other repository please leave a message in `#play-with-fire` channel
+1. Make sure that the following GitHub Repository settings are enabled  
+Settings → Actions → General → Workflow permissions → Read and write permissions ✅  
+Settings → Actions → General → Allow GitHub Actions to create and approve pull requests ✅
+2. Add file `.github/workflows/ej-issue.yml`
 ```yaml
 name: Junie
 
@@ -40,7 +44,7 @@ jobs:
 
 1. **Via GitHub Issues**
    - Create an issue with `[junie]` in the title
-   - Describe your task in the body (markdown supported!)
+   - Describe your task in the body (Markdown supported!)
    - No file attachments or images yet, but we're working on it!
 
 2. **Fix Specific Code in PRs**
@@ -60,10 +64,11 @@ You can find examples of how to use Junie in the [demo repository](https://githu
 Join us in the `#play-with-fire` Slack channel!
 
 ### Do I need to request any access or tokens?
-No, Junie GH workflows works out of the box in any private or internal JetBrains repository.
+Junie GH workflows work out of the box in any JetBrains repository. For access to repositories outside JetBrains leave a message in the `#play-with-fire` channel.
 
 ### Can I use it in Space repositories?
-Unfortunately, no. Junie GH workflows works only in Github for now. But you can mirror your Space repository to Github and use it there.
+Unfortunately, no. Junie GH workflows work only on GitHub for now.
+But you can mirror your Space repository to GitHub and use it there.
 
 ### 🔒 Security: Can Junie break my repository?
 Nope! Junie only has the permissions it absolutely needs through GitHub Actions. Here's what it can do:
@@ -84,13 +89,4 @@ Since Junie runs on IntelliJ IDEA Ultimate, it works best with Java/Kotlin appli
 While our [IntelliJ plugin](https://plugins.jetbrains.com/plugin/26104-jetbrains-junie) works great with Python, the GitHub Actions implementation is still being optimized. Soon we will add more specializations images for different tech stacks.
 
 **Can I customize the workflow?**
-Absolutely! You can create your own GitHub workflow - just copy the `Run junie plugin` step and use our Docker image: `ghcr.io/jetbrains/junie_workflows/amd64-idea-ej:latest`. Check out the existing workflow for implementation details.
-
-**How does it work?**
-We've packaged IntelliJ IDEA with the Junie plugin into a Docker container that runs on GitHub workers.
-
-**Which LLM powers Junie?**
-We primarily use Anthropic's models, with some OpenAI sprinkled in.
-
----
-No special secrets or LLM tokens needed! Works in any private or internal JetBrains project with a default balance of $100 (most small refactoring tasks cost ~$1 or less).
+Absolutely! You can create your own GitHub workflow — just copy the `Run junie plugin` step and use our Docker image: `ghcr.io/jetbrains/junie_workflows/amd64-idea-ej:latest`. Check out the existing workflow for implementation details.
