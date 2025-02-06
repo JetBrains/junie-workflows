@@ -1,7 +1,10 @@
 name: junie
 
 on:
-  workflow_call: {}
+  workflow_call:
+    secrets:
+      GCP_DOCKER_JUNIE_KEY:
+        required: false
 
 jobs:
   junie-setup:
@@ -116,7 +119,7 @@ jobs:
         with:
           registry: europe-west1-docker.pkg.dev
           username: _json_key
-          password: ${{ secrets.GCP_SA_KEY }}
+          password: ${{ secrets.GCP_DOCKER_JUNIE_KEY }}
 
       - name: Run junie plugin
         env:
