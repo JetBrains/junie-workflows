@@ -153,7 +153,7 @@ jobs:
             -e ISSUE_TITLE="${{ needs.junie-setup.outputs.issue_title }}" \
             -e ISSUE_BODY="$ISSUE_BODY" \
             -e INGRAZZIO_URL="$INGRAZZIO_URL" \
-            -e INGRAZZIO_ACCESS_TOKEN="$INGRAZZIO_ACCESS_TOKEN" \
+            -e INGRAZZIO_GITHUB_ACCESS_TOKEN="$INGRAZZIO_ACCESS_TOKEN" \
             -e KEEP_SERVICE_DIR="true" \
             -v ${{ github.workspace }}:/project \
             -v ${{ github.workspace }}/ej-logs:/idea/idea-logs \
