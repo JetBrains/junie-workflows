@@ -184,7 +184,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: ej-logs
-          path: ej-logs/
+          path: ej-logs/log/idea.log
           include-hidden-files: 'true'
           retention-days: 3
 
