@@ -2,113 +2,55 @@ name: junie
 
 on:
   workflow_call:
-    secrets:
-      GCP_DOCKER_JUNIE_KEY:
+     secrets:
+       GCP_DOCKER_JUNIE_KEY:
+         required: false
+  workflow_dispatch:
+    inputs:
+      run_type:
+        description: "Type of run"
+        required: true
+      checkout_ref:
+        description: "Checkout reference"
         required: false
+      issue_body:
+        description: "Body of the issue"
+        required: false
+      issue_title:
+        description: "Title of the issue"
+        required: false
+      issue_id:
+        description: "ID of an issue"
+        required: false
+      upload_logs:
+        description: "Whether to upload logs"
+        required: true
+      use_github_registry:
+        description: "Use GitHub registry"
+        required: true
+      app_token:
+        description: "App's JWT token"
+        required: true
 
 jobs:
-  junie-setup:
-    runs-on: ubuntu-latest
-    permissions:
-      pull-requests: read
-    outputs:
-      run_type: ${{ steps.check.outputs.run_type }}
-      checkout_ref: ${{ steps.check.outputs.checkout_ref }}
-      issue_body: ${{ steps.check.outputs.issue_body }}
-      issue_title: ${{ steps.check.outputs.issue_title }}
-      default_branch: ${{ steps.check.outputs.default_branch }}
-      upload_logs: ${{ steps.check.outputs.upload_logs }}
-      use_github_registry: ${{ steps.check.outputs.use_github_registry }}
-    env:
-      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-    steps:
-      - id: check
-        name: determine run type
-        uses: actions/github-script@v7
-        with:
-          script: |            
-            const { data: repo } = await github.rest.repos.get({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-            });
-            
-            let outputs = { run_type: 'none' };
-            
-            if (
-              (context.eventName === 'issues' && context.payload.issue.title.includes('junie')) ||
-              (context.eventName === 'issue_comment' && context.payload.comment.body == 'junie: try again')
-            ) {
-              outputs = {
-                run_type: 'new_issue',
-                issue_title: context.payload.issue.title,
-                issue_body: context.payload.issue.body
-              };
-            }
-            
-            if (context.eventName === 'issue_comment' && context.payload.issue.pull_request && context.payload.comment.body === 'junie: fix all') {                            
-              const prRequestPrams = {
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                pull_number: context.payload.issue.number,
-              };
-              const [{ data: pr }, { data: comments }] = await Promise.all([
-                  github.rest.pulls.get(prRequestPrams),
-                  github.rest.pulls.listReviewComments(prRequestPrams),
-              ]);
-            
-              const formattedComments = [
-                'You will receive following GitHub comments to pull requests of current branch.',
-                `PR description:\n${pr.body}\n`,
-                'Comments:',
-                ...comments.map(comment => 
-                  `[file: ${comment.path}, line: ${comment.line}]\n${comment.body}\n---NEXT_COMMENT---`
-                )
-              ].join('\n');
-            
-              outputs = {
-                issue_title: 'fix all pull request issues',
-                run_type: 'fix_all',
-                issue_body: formattedComments,
-                checkout_ref: pr.head.ref,
-                default_branch: repo.default_branch
-              };
-            }
-            
-            if (context.eventName === 'pull_request_review_comment' && context.payload.comment.body.startsWith('junie: fix')) {
-              outputs = {
-                checkout_ref: context.payload.pull_request.head.ref,
-                issue_title: 'fix pull request issue',
-                issue_body: context.payload.comment.body,
-                run_type: 'fix_single'
-              };
-            }
-
-            const isJetbrains = repo.owner.login.toLowerCase() === 'jetbrains';
-            outputs.upload_logs = ((repo.visibility == "private" || repo.visibility == "internal") && isJetbrains) ? 'true' : 'false'
-            outputs.use_github_registry = isJetbrains ? 'true' : 'false'
-            
-            Object.entries(outputs).forEach(([key, value]) => {
-              core.setOutput(key, value);
-            });
-            
-            console.log('Final outputs:', outputs);
-
   run-junie:
-    needs: junie-setup
-    if: needs.junie-setup.outputs.run_type != 'none'
     runs-on: ubuntu-latest
+    if: ${{ inputs.run_type != 'none' }}
     permissions:
       contents: write
       pull-requests: write
       packages: read
     steps:
+      - name: Output Inputs
+        run: echo "${{ toJSON(github.event.inputs) }}"
+
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
-          ref: ${{ needs.junie-setup.outputs.checkout_ref }}
+          ref: ${{ inputs.checkout_ref }}
 
       - name: Log in to GitHub Container Registry
-        if: ${{ needs.junie-setup.outputs.use_github_registry == 'true' }}
+        if: ${{ inputs.use_github_registry == 'true' }}
         uses: docker/login-action@v3
         with:
           registry: ghcr.io
@@ -116,7 +58,7 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Log in to GCP Artifact Registry
-        if: ${{ needs.junie-setup.outputs.use_github_registry == 'false' }}
+        if: ${{ inputs.use_github_registry == 'false' }}
         uses: docker/login-action@v3
         with:
           registry: europe-west1-docker.pkg.dev
@@ -127,11 +69,13 @@ jobs:
         env:
           GCP_DOCKER_JUNIE_KEY: ${{ secrets.GCP_DOCKER_JUNIE_KEY }}
         run: |
-          INGRAZZIO_URL="https://ingrazzio-dev.labs.jb.gg"
+          INGRAZZIO_URL="https://ingrazzio.labs.jb.gg"
           INGRAZZIO_ACCESS_TOKEN=$(curl -X POST "${INGRAZZIO_URL}/auth" \
             -H "Content-Type: application/json" \
             -s -S \
             -d "{\"token\": \"${{ secrets.GITHUB_TOKEN }}\"}" | jq -r '.id')
+          
+          echo "Got Ingrazzio token: $INGRAZZIO_ACCESS_TOKEN"
 
           if [ -z "$INGRAZZIO_ACCESS_TOKEN" ] || [[ "$INGRAZZIO_ACCESS_TOKEN" != GH* ]]; then
             echo "INGRAZZIO_ACCESS_TOKEN is invalid: $INGRAZZIO_ACCESS_TOKEN, exiting with status 1."
@@ -139,18 +83,18 @@ jobs:
           fi
           # to escape newlines and quotas
           ISSUE_BODY=ISSUE_BODY=$(cat <<'EOF'
-            ${{ needs.junie-setup.outputs.issue_body }}
+            ${{ inputs.issue_body }}
           EOF
           )
           
           if [ -n "$GCP_DOCKER_JUNIE_KEY" ]; then
             IMAGE="europe-west1-docker.pkg.dev/jetbrains-matterhorn-prod/junie-cloud/amd64-idea-ej:latest"
           else
-            IMAGE="ghcr.io/jetbrains/junie_workflows/amd64-idea-ej:latest"
+            IMAGE="ghcr.io/melotria/junie_workflows/amd64-idea-ej:latest"
           fi
 
           docker run \
-            -e ISSUE_TITLE="${{ needs.junie-setup.outputs.issue_title }}" \
+            -e ISSUE_TITLE="${{ inputs.issue_title }}" \
             -e ISSUE_BODY="$ISSUE_BODY" \
             -e INGRAZZIO_URL="$INGRAZZIO_URL" \
             -e INGRAZZIO_GITHUB_ACCESS_TOKEN="$INGRAZZIO_ACCESS_TOKEN" \
@@ -180,7 +124,7 @@ jobs:
           echo "output is $GITHUB_OUTPUT"
 
       - name: Archive Logs
-        if: always() && (needs.junie-setup.outputs.upload_logs == 'true')
+        if: always() && (inputs.upload_logs == 'true')
         uses: actions/upload-artifact@v4
         with:
           name: ej-logs
@@ -189,7 +133,7 @@ jobs:
           retention-days: 3
 
       - name: Archive .matterhorn
-        if: always() && (needs.junie-setup.outputs.upload_logs == 'true')
+        if: always() && (inputs.upload_logs == 'true')
         uses: actions/upload-artifact@v4
         with:
           name: matterhorn-logs
@@ -213,26 +157,26 @@ jobs:
           fi
 
       - name: Create Pull Request
-        if: needs.junie-setup.outputs.run_type == 'new_issue'
+        if: inputs.run_type == 'new_issue'
         uses: peter-evans/create-pull-request@v5
         with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          commit-message: "[junie] ${{ github.event.issue.title }} changes from the task: \"${{ github.event.issue.number }}\""
-          title: "Changes from issue ${{ github.event.issue.title }}"
+          token: ${{ inputs.app_token }}
+          commit-message: "[junie] ${{ inputs.issue_title }} \n changes from the task: \"${{ inputs.issue_id }}\""
+          title: "[${{ inputs.issue_id }}] ${{ inputs.issue_title }}"
           body: |
-            This PR was automatically created in response to issue #${{ github.event.issue.number }}            
+            This PR was automatically created in response to issue #${{ inputs.issue_id }}            
             Original issue description:
-            ${{ github.event.issue.body }}
+            ${{ inputs.issue_body }}
             junie summary:
             ${{ steps.junie_summary.outputs.summary }}
-          branch: feature/issue-${{ github.event.issue.number }}
-          base: ${{ needs.junie-setup.outputs.default_branch }}
+          branch: junie-issue-${{ inputs.issue_id }}
+          base: ${{ inputs.default_branch }}
 
       - name: Commit changes to PR branch
-        if: needs.junie-setup.outputs.run_type == 'fix_all' || needs.junie-setup.outputs.run_type == 'fix_single'
+        if: inputs.run_type == 'fix_all' || inputs.run_type == 'fix_single'
         run: |
           git config --global user.name 'junie[bot]'
           git config --global user.email 'junie[bot]@users.noreply.github.com'
           git add .
           git commit -m "[junnie] ${{ steps.junie_summary.outputs.short }}" -m "summary: ${{ steps.junie_summary.outputs.content }}"
-          git push origin HEAD:${{ needs.junie-setup.outputs.checkout_ref }}
+          git push origin HEAD:${{ inputs.checkout_ref }}
