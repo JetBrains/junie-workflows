@@ -94,7 +94,7 @@ jobs:
           if [ -n "$GCP_DOCKER_JUNIE_KEY" ]; then
             IMAGE="europe-west1-docker.pkg.dev/jetbrains-matterhorn-prod/junie-cloud/amd64-idea-ej:latest"
           else
-            IMAGE="ghcr.io/melotria/junie_workflows/amd64-idea-ej:latest"
+            IMAGE="ghcr.io/jetbrains/junie_workflows/amd64-idea-ej:latest"
           fi
 
           docker run \
