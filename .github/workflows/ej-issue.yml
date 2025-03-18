@@ -164,13 +164,17 @@ jobs:
         uses: peter-evans/create-pull-request@v5
         with:
           token: ${{ inputs.app_token }}
-          commit-message: "[junie] ${{ inputs.issue_title }} \n changes from the task: \"${{ inputs.issue_id }}\""
+          commit-message: "[Junie] ${{ inputs.issue_title }} \n changes from the task: \"${{ inputs.issue_id }}\""
           title: "[${{ inputs.issue_id }}] ${{ inputs.issue_title }}"
           body: |
-            This PR was automatically created in response to issue #${{ inputs.issue_id }}            
-            Original issue description:
-            ${{ inputs.issue_body }}
-            junie summary:
+            ## PR Details
+
+            **Issue:** #${{ inputs.issue_id }} 
+
+            **Original Issue Description:**  
+            ${{ github.event.issue.body }}
+
+            **Junie Summary:**  
             ${{ steps.junie_summary.outputs.summary }}
           branch: junie-issue-${{ inputs.issue_id }}
           base: ${{ inputs.checkout_ref }}
