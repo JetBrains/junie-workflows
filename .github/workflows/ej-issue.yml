@@ -167,16 +167,18 @@ jobs:
           commit-message: "${{ inputs.issue_title }} \n changes from the task: #${{ inputs.issue_id }}"
           title: "[Junie]: ${{ inputs.issue_title }}"
           body: |
-            ## PR Details
+            ## Details
             
             **Issue:** ${{ inputs.issue_id }}
             
             **Title:** ${{ inputs.issue_title }}
             
             **Original Issue Description:**
+
             ${{ inputs.issue_body }}
             
-            **Junie Summary:**  
+            **Junie Summary:**
+            
             ${{ steps.junie_summary.outputs.summary }}
           branch: junie-issue-${{ inputs.issue_id }}
           base: ${{ inputs.checkout_ref }}
