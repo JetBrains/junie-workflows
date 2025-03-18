@@ -164,7 +164,7 @@ jobs:
         uses: peter-evans/create-pull-request@v5
         with:
           token: ${{ inputs.app_token }}
-          commit-message: "[Junie] ${{ inputs.issue_title }} \n changes from the task: #${{ inputs.issue_id }}"
+          commit-message: "${{ inputs.issue_title }} \n changes from the task: #${{ inputs.issue_id }}"
           title: "[Junie]: ${{ inputs.issue_title }}"
           body: |
             ## PR Details
@@ -187,5 +187,5 @@ jobs:
           git config --global user.name 'junie[bot]'
           git config --global user.email 'junie[bot]@users.noreply.github.com'
           git add .
-          git commit -m "[Junie][${{ inputs.issue_id }}]" -m "summary: ${{ steps.junie_summary.outputs.summary }}"
+          git commit -m "[${{ inputs.issue_id }}]" -m "summary: ${{ steps.junie_summary.outputs.summary }}"
           git push origin HEAD:${{ inputs.checkout_ref }}
