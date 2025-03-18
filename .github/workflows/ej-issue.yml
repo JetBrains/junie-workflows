@@ -57,16 +57,16 @@ jobs:
               ]);
             
               const formattedComments = [
-                'You will receive following GitHub comments to pull requests of current branch.',
-                `PR description:\n${pr.body}\n`,
-                'Comments:',
+                "### GitHub Comments Summary\n",
+                `**PR Description:**\n${pr.body}\n`,
+                "**Review Comments:**\n",
                 ...comments.map(comment => 
-                  `[file: ${comment.path}, line: ${comment.line}]\n${comment.body}\n---NEXT_COMMENT---`
+                  `- **File:** ${comment.path}, **Line:** ${comment.line}\n  > ${comment.body}`
                 )
-              ].join('\n');
+              ].join('\n\n');
             
               outputs = {
-                issue_title: 'fix all pull request issues',
+                issue_title: 'Fix all pull request issues',
                 run_type: 'fix_all',
                 issue_body: formattedComments,
                 checkout_ref: pr.head.ref,
@@ -77,7 +77,7 @@ jobs:
             if (context.eventName === 'pull_request_review_comment' && context.payload.comment.body.startsWith('junie: fix')) {
               outputs = {
                 checkout_ref: context.payload.pull_request.head.ref,
-                issue_title: 'fix pull request issue',
+                issue_title: 'Fix pull request issue',
                 issue_body: context.payload.comment.body,
                 run_type: 'fix_single'
               };
@@ -217,13 +217,19 @@ jobs:
         uses: peter-evans/create-pull-request@v5
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
-          commit-message: "[junie] ${{ github.event.issue.title }} changes from the task: \"${{ github.event.issue.number }}\""
+          commit-message: "[Junie] ${{ github.event.issue.title }} changes from task: #${{ github.event.issue.number }}"
           title: "Changes from issue ${{ github.event.issue.title }}"
           body: |
-            This PR was automatically created in response to issue #${{ github.event.issue.number }}            
-            Original issue description:
+            ## PR Details
+
+            **Issue:** #${{ github.event.issue.number }}  
+
+            **Title:** ${{ github.event.issue.title }}
+
+            **Original Issue Description:**  
             ${{ github.event.issue.body }}
-            junie summary:
+
+            **Junie Summary:**  
             ${{ steps.junie_summary.outputs.summary }}
           branch: feature/issue-${{ github.event.issue.number }}
           base: ${{ needs.junie-setup.outputs.default_branch }}
