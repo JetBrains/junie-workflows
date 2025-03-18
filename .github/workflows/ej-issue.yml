@@ -169,9 +169,9 @@ jobs:
           body: |
             ## PR Details
             
-            **Issue:** ${{ inputs.issue_title }}
+            **Issue:** ${{ inputs.issue_id }}
             
-            **Title:** ${{ github.event.issue.title }}
+            **Title:** ${{ inputs.issue_title }}
             
             **Original Issue Description:**
             ${{ inputs.issue_body }}
