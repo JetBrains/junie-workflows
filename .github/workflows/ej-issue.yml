@@ -165,7 +165,7 @@ jobs:
         with:
           token: ${{ inputs.app_token }}
           commit-message: "[Junie] ${{ inputs.issue_title }} \n changes from the task: #${{ inputs.issue_id }}"
-          title: "[${{ inputs.issue_id }}] ${{ inputs.issue_title }}"
+          title: "[Junie]: ${{ inputs.issue_title }}"
           body: |
             ## PR Details
             
