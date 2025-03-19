@@ -173,7 +173,7 @@ jobs:
             - 🏷 **Title:** ${{ github.event.issue.title }}
             
             ### 📝 Original Issue Description  
-            > ${{ github.event.issue.body }}
+            > ${{ inputs.issue_body }}
             
             ### 📊 Junie Summary
             ${{ steps.junie_summary.outputs.summary }}
