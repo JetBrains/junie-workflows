@@ -167,18 +167,15 @@ jobs:
           commit-message: "${{ inputs.issue_title }} \n changes from the task: #${{ inputs.issue_id }}"
           title: "[Junie]: ${{ inputs.issue_title }}"
           body: |
-            ## Details
-            
-            **Issue:** ${{ inputs.issue_id }}
-            
-            **Title:** ${{ inputs.issue_title }}
-            
-            **Original Issue Description:**
+            ## 📌 PR Details
 
-            ${{ inputs.issue_body }}
+            - 🔗 **Issue:** ${{ inputs.issue_id }}
+            - 🏷 **Title:** ${{ github.event.issue.title }}
             
-            **Junie Summary:**
+            ### 📝 Original Issue Description  
+            > ${{ github.event.issue.body }}
             
+            ### 📊 Junie Summary
             ${{ steps.junie_summary.outputs.summary }}
           branch: junie-issue-${{ inputs.issue_id }}
           base: ${{ inputs.checkout_ref }}
