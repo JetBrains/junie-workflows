@@ -169,7 +169,7 @@ jobs:
           body: |
             ## 📌 PR Details
 
-            - 🔗 **Issue:** ${{ inputs.issue_id }}
+            - 🔗 **Issue:** #${{ inputs.issue_id }}
             - 🏷 **Title:** ${{ github.event.issue.title }}
             
             ### 📝 Original Issue Description  
