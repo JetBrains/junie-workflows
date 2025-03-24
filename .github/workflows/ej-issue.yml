@@ -36,10 +36,10 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
-          ref: ${{ steps.workflow-params.outputscheckout_ref }}
+          ref: ${{ steps.workflow-params.outputs.checkout_ref }}
 
       - name: Log in to GitHub Container Registry
-        if: ${{ steps.workflow-params.outputsuse_github_registry == 'true' }}
+        if: ${{ steps.workflow-params.outputs.use_github_registry == 'true' }}
         uses: docker/login-action@v3
         with:
           registry: ghcr.io
@@ -47,7 +47,7 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Log in to GCP Artifact Registry
-        if: ${{ steps.workflow-params.outputsuse_github_registry == 'false' }}
+        if: ${{ steps.workflow-params.outputs.use_github_registry == 'false' }}
         uses: docker/login-action@v3
         with:
           registry: europe-west1-docker.pkg.dev
@@ -62,9 +62,7 @@ jobs:
           INGRAZZIO_ACCESS_TOKEN=$(curl -X POST "${INGRAZZIO_URL}/auth" \
             -H "Content-Type: application/json" \
             -s -S \
-            -d "{\"token\": \"${{ secrets.GITHUB_TOKEN }}\"}" | jq -r '.id')
-          
-          echo "Got Ingrazzio token: $INGRAZZIO_ACCESS_TOKEN"
+            -d "{\"token\": \"${{ secrets.GITHUB_TOKEN }}\"}" | jq -r '.id')      
 
           if [ -z "$INGRAZZIO_ACCESS_TOKEN" ] || [[ "$INGRAZZIO_ACCESS_TOKEN" != GH* ]]; then
             echo "INGRAZZIO_ACCESS_TOKEN is invalid: $INGRAZZIO_ACCESS_TOKEN, exiting with status 1."
@@ -72,7 +70,7 @@ jobs:
           fi
           # to escape newlines and quotas
           ISSUE_BODY=ISSUE_BODY=$(cat <<'EOF'
-            ${{ steps.workflow-params.outputsissue_body }}
+            ${{ steps.workflow-params.outputs.issue_body }}
           EOF
           )
           
@@ -83,7 +81,7 @@ jobs:
           fi
 
           docker run \
-            -e ISSUE_TITLE="${{ steps.workflow-params.outputsissue_title }}" \
+            -e ISSUE_TITLE="${{ steps.workflow-params.outputs.issue_title }}" \
             -e ISSUE_BODY="$ISSUE_BODY" \
             -e INGRAZZIO_URL="$INGRAZZIO_URL" \
             -e INGRAZZIO_GITHUB_ACCESS_TOKEN="$INGRAZZIO_ACCESS_TOKEN" \
@@ -112,7 +110,7 @@ jobs:
           echo "output is $GITHUB_OUTPUT"
 
       - name: Archive Logs
-        if: always() && (steps.workflow-params.outputsupload_logs == 'true')
+        if: always() && (steps.workflow-params.outputs.upload_logs == 'true')
         uses: actions/upload-artifact@v4
         with:
           name: ej-logs
@@ -121,7 +119,7 @@ jobs:
           retention-days: 3
 
       - name: Archive .matterhorn
-        if: always() && (steps.workflow-params.outputsupload_logs == 'true')
+        if: always() && (steps.workflow-params.outputs.upload_logs == 'true')
         uses: actions/upload-artifact@v4
         with:
           name: matterhorn-logs
@@ -145,31 +143,31 @@ jobs:
           fi
 
       - name: Create Pull Request
-        if: steps.workflow-params.outputsrun_type == 'new_issue'
+        if: steps.workflow-params.outputs.run_type == 'new_issue'
         uses: peter-evans/create-pull-request@v5
         with:
-          token: ${{ steps.workflow-params.outputsapp_token }}
-          commit-message: "${{ steps.workflow-params.outputsissue_title }} \n changes from the task: #${{ steps.workflow-params.outputsissue_id }}"
-          title: "[Junie]: ${{ steps.workflow-params.outputsissue_title }}"
+          token: ${{ steps.workflow-params.outputs.app_token }}
+          commit-message: "${{ steps.workflow-params.outputs.issue_title }} \n changes from the task: #${{ steps.workflow-params.outputs.issue_id }}"
+          title: "[Junie]: ${{ steps.workflow-params.outputs.issue_title }}"
           body: |
             ## 📌 PR Details
 
-            - 🔗 **Issue:** #${{ steps.workflow-params.outputsissue_id }}
+            - 🔗 **Issue:** #${{ steps.workflow-params.outputs.issue_id }}
             - 🏷 **Title:** ${{ github.event.issue.title }}
             
             ### 📝 Original Issue Description  
-            > ${{ steps.workflow-params.outputsissue_body }}
+            > ${{ steps.workflow-params.outputs.issue_body }}
             
             ### 📊 Junie Summary
             ${{ steps.junie_summary.outputs.summary }}
-          branch: junie-issue-${{ steps.workflow-params.outputsissue_id }}
-          base: ${{ steps.workflow-params.outputscheckout_ref }}
+          branch: junie-issue-${{ steps.workflow-params.outputs.issue_id }}
+          base: ${{ steps.workflow-params.outputs.checkout_ref }}
 
       - name: Commit changes to PR branch
-        if: steps.workflow-params.outputsrun_type == 'fix_all' || steps.workflow-params.outputsrun_type == 'fix_single'
+        if: steps.workflow-params.outputs.run_type == 'fix_all' || steps.workflow-params.outputs.run_type == 'fix_single'
         run: |
           git config --global user.name 'junie[bot]'
           git config --global user.email 'junie[bot]@users.noreply.github.com'
           git add .
-          git commit -m "[${{ steps.workflow-params.outputsissue_id }}]" -m "summary: ${{ steps.junie_summary.outputs.summary }}"
-          git push origin HEAD:${{ steps.workflow-params.outputscheckout_ref }}
+          git commit -m "[${{ steps.workflow-params.outputs.issue_id }}]" -m "summary: ${{ steps.junie_summary.outputs.summary }}"
+          git push origin HEAD:${{ steps.workflow-params.outputs.checkout_ref }}
