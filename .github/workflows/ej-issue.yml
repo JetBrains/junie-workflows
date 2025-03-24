@@ -28,7 +28,7 @@ jobs:
           script: |
             const params = JSON.parse(core.getInput('params'));
             Object.keys(params).forEach((key) => {
-                core.setOutput(key, content[key]);
+                core.setOutput(key, params[key]);
             });
             console.log(`Params are ${params}`);           
 
