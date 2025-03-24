@@ -6,55 +6,40 @@ on:
       GCP_DOCKER_JUNIE_KEY:
         required: false
     inputs:
-      run_type:
-        description: "Type of run"
-        type: string
-        required: true
-      checkout_ref:
-        description: "Checkout reference"
-        type: string
-      issue_body:
-        description: "Body of the issue"
-        type: string
-        required: true
-      issue_title:
-        description: "Title of the issue"
-        type: string
-        required: true
-      issue_id:
-        description: "ID of an issue"
-        type: string
-        required: true
-      upload_logs:
-        description: "Whether to upload logs"
-        type: string
-      use_github_registry:
-        description: "Use GitHub registry"
-        type: string
-      app_token:
-        description: "App's JWT token"
+      workflow_params:
+        description: "JSON string containing all workflow parameters"
         type: string
         required: true
 
 jobs:
   run-junie:
     runs-on: ubuntu-latest
-    if: ${{ inputs.run_type != 'none' }}
     permissions:
       contents: write
       pull-requests: write
       packages: read
     steps:
-      - name: Output Inputs
-        run: echo "${{ toJSON(github.event.inputs) }}"
+      - name: Extract workflow params
+        id: workflow-params
+        run: |
+          content='${{ inputs.workflow_params }}'
+          echo "run_type=$(echo "$content" | jq -r '.run_type')" >> $GITHUB_OUTPUT
+          echo "checkout_ref=$(echo "$content" | jq -r '.checkout_ref')" >> $GITHUB_OUTPUT
+          echo "issue_body=$(echo "$content" | jq -r '.issue_body')" >> $GITHUB_OUTPUT
+          echo "issue_title=$(echo "$content" | jq -r '.issue_title')" >> $GITHUB_OUTPUT
+          echo "issue_id=$(echo "$content" | jq -r '.issue_id')" >> $GITHUB_OUTPUT
+          echo "upload_logs=$(echo "$content" | jq -r '.upload_logs')" >> $GITHUB_OUTPUT
+          echo "use_github_registry=$(echo "$content" | jq -r '.use_github_registry')" >> $GITHUB_OUTPUT
+          echo "app_token=$(echo "$content" | jq -r '.app_token')" >> $GITHUB_OUTPUT
+          echo "Params are $content"
 
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
-          ref: ${{ inputs.checkout_ref }}
+          ref: ${{ steps.workflow-params.outputscheckout_ref }}
 
       - name: Log in to GitHub Container Registry
-        if: ${{ inputs.use_github_registry == 'true' }}
+        if: ${{ steps.workflow-params.outputsuse_github_registry == 'true' }}
         uses: docker/login-action@v3
         with:
           registry: ghcr.io
@@ -62,7 +47,7 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Log in to GCP Artifact Registry
-        if: ${{ inputs.use_github_registry == 'false' }}
+        if: ${{ steps.workflow-params.outputsuse_github_registry == 'false' }}
         uses: docker/login-action@v3
         with:
           registry: europe-west1-docker.pkg.dev
@@ -87,7 +72,7 @@ jobs:
           fi
           # to escape newlines and quotas
           ISSUE_BODY=ISSUE_BODY=$(cat <<'EOF'
-            ${{ inputs.issue_body }}
+            ${{ steps.workflow-params.outputsissue_body }}
           EOF
           )
           
@@ -98,7 +83,7 @@ jobs:
           fi
 
           docker run \
-            -e ISSUE_TITLE="${{ inputs.issue_title }}" \
+            -e ISSUE_TITLE="${{ steps.workflow-params.outputsissue_title }}" \
             -e ISSUE_BODY="$ISSUE_BODY" \
             -e INGRAZZIO_URL="$INGRAZZIO_URL" \
             -e INGRAZZIO_GITHUB_ACCESS_TOKEN="$INGRAZZIO_ACCESS_TOKEN" \
@@ -127,7 +112,7 @@ jobs:
           echo "output is $GITHUB_OUTPUT"
 
       - name: Archive Logs
-        if: always() && (inputs.upload_logs == 'true')
+        if: always() && (steps.workflow-params.outputsupload_logs == 'true')
         uses: actions/upload-artifact@v4
         with:
           name: ej-logs
@@ -136,7 +121,7 @@ jobs:
           retention-days: 3
 
       - name: Archive .matterhorn
-        if: always() && (inputs.upload_logs == 'true')
+        if: always() && (steps.workflow-params.outputsupload_logs == 'true')
         uses: actions/upload-artifact@v4
         with:
           name: matterhorn-logs
@@ -160,31 +145,31 @@ jobs:
           fi
 
       - name: Create Pull Request
-        if: inputs.run_type == 'new_issue'
+        if: steps.workflow-params.outputsrun_type == 'new_issue'
         uses: peter-evans/create-pull-request@v5
         with:
-          token: ${{ inputs.app_token }}
-          commit-message: "${{ inputs.issue_title }} \n changes from the task: #${{ inputs.issue_id }}"
-          title: "[Junie]: ${{ inputs.issue_title }}"
+          token: ${{ steps.workflow-params.outputsapp_token }}
+          commit-message: "${{ steps.workflow-params.outputsissue_title }} \n changes from the task: #${{ steps.workflow-params.outputsissue_id }}"
+          title: "[Junie]: ${{ steps.workflow-params.outputsissue_title }}"
           body: |
             ## 📌 PR Details
 
-            - 🔗 **Issue:** #${{ inputs.issue_id }}
+            - 🔗 **Issue:** #${{ steps.workflow-params.outputsissue_id }}
             - 🏷 **Title:** ${{ github.event.issue.title }}
             
             ### 📝 Original Issue Description  
-            > ${{ inputs.issue_body }}
+            > ${{ steps.workflow-params.outputsissue_body }}
             
             ### 📊 Junie Summary
             ${{ steps.junie_summary.outputs.summary }}
-          branch: junie-issue-${{ inputs.issue_id }}
-          base: ${{ inputs.checkout_ref }}
+          branch: junie-issue-${{ steps.workflow-params.outputsissue_id }}
+          base: ${{ steps.workflow-params.outputscheckout_ref }}
 
       - name: Commit changes to PR branch
-        if: inputs.run_type == 'fix_all' || inputs.run_type == 'fix_single'
+        if: steps.workflow-params.outputsrun_type == 'fix_all' || steps.workflow-params.outputsrun_type == 'fix_single'
         run: |
           git config --global user.name 'junie[bot]'
           git config --global user.email 'junie[bot]@users.noreply.github.com'
           git add .
-          git commit -m "[${{ inputs.issue_id }}]" -m "summary: ${{ steps.junie_summary.outputs.summary }}"
-          git push origin HEAD:${{ inputs.checkout_ref }}
+          git commit -m "[${{ steps.workflow-params.outputsissue_id }}]" -m "summary: ${{ steps.junie_summary.outputs.summary }}"
+          git push origin HEAD:${{ steps.workflow-params.outputscheckout_ref }}
