@@ -146,7 +146,7 @@ jobs:
         uses: peter-evans/create-pull-request@v5
         with:
           token: ${{ steps.workflow-params.outputs.app_token }}
-          commit-message: "${{ steps.workflow-params.outputs.issue_title }} \n changes from the task: #${{ steps.workflow-params.outputs.issue_id }}"
+          commit-message: "chore(junie): ${{ steps.workflow-params.outputs.issue_title }} \n changes from the task: #${{ steps.workflow-params.outputs.issue_id }}"
           title: "[Junie]: ${{ steps.workflow-params.outputs.issue_title }}"
           body: |
             ## 📌 PR Details
