@@ -47,15 +47,9 @@ jobs:
    - Describe your task in the body (Markdown supported!)
    - No file attachments or images yet, but we're working on it!
 
-2. **Fix Specific Code in PRs**
-   - Add a review comment to any line of code
-   - Start your comment with `@jetbrain-junie: fix`
-   - Junie will commit the fix directly to your PR branch
-
-3. **Fix All PR Comments**
-   - Comment on the PR (not in the review mode!) with exactly `@jetbrain-junie: fix all`
-   - Junie will address all review comments at once
-   - Changes will be pushed to your PR branch
+2. **Fix Issue in Comments**
+   - Comment on the Issue with exactly `@jetbrain-junie: fix`
+   - Changes will be pushed to PR branch
 
 You can find examples of how to use Junie in the [demo repository](https://github.com/JetBrains/junie-demo).
 
