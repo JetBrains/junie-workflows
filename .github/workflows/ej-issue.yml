@@ -54,6 +54,7 @@ jobs:
           password: ${{ secrets.GCP_DOCKER_JUNIE_KEY }}
 
       - name: Run junie plugin
+        timeout-minutes: 30
         env:
           GCP_DOCKER_JUNIE_KEY: ${{ secrets.GCP_DOCKER_JUNIE_KEY }}
         run: |
