@@ -153,7 +153,7 @@ jobs:
             ## 📌 PR Details
 
             - 🔗 **Issue:** #${{ steps.workflow-params.outputs.issue_id }}
-            - 🏷 **Title:** ${{ inputs.issue_title }}
+            - 🏷 **Title:** ${{ steps.workflow-params.outputs.issue_title }}
             
             ### 📝 Original Issue Description  
             > ${{ steps.workflow-params.outputs.issue_body }}
